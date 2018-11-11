@@ -681,6 +681,7 @@ int main(int argc, char **argv) {
 	int tj = 0;
 	int interactivepwd = 0;
 	int interactivehash = 0;
+	int keychainpassword = 0;
 	int tracefile = 0;
 	int cflags = 0;
 	int asdaemon = 1;
@@ -711,7 +712,7 @@ int main(int argc, char **argv) {
 	syslog(LOG_INFO, "Starting cntlm version " VERSION " for LITTLE endian\n");
 #endif
 
-	while ((i = getopt(argc, argv, ":-:a:c:d:fghIl:p:r:su:vw:A:BD:F:G:HL:M:N:O:P:R:S:T:U:")) != -1) {
+	while ((i = getopt(argc, argv, ":-:a:c:d:fghIkl:p:r:su:vw:A:BD:F:G:HL:M:N:O:P:R:S:T:U:")) != -1) {
 		switch (i) {
 			case 'A':
 			case 'D':
@@ -759,6 +760,11 @@ int main(int argc, char **argv) {
 			case 'I':
 				interactivepwd = 1;
 				break;
+#ifdef __APPLE__
+			case 'k':
+				keychainpassword = 1;
+				break;
+#endif
 			case 'L':
 				/*
 				 * Parse and validate the argument.
@@ -901,6 +907,9 @@ int main(int argc, char **argv) {
 		fprintf(stderr, "\t-H  Print password hashes for use in config file (NTLMv2 needs -u and -d).\n");
 		fprintf(stderr, "\t-h  Print this help info along with version number.\n");
 		fprintf(stderr, "\t-I  Prompt for the password interactively.\n");
+#ifdef __APPLE__
+        	fprintf(stderr, "\t-k  Reads password from keychain. Item: 'cntlm', Account Name: user.\n");
+#endif
 		fprintf(stderr, "\t-L  [<saddr>:]<lport>:<rhost>:<rport>\n"
 				"\t    Forwarding/tunneling a la OpenSSH. Same syntax - listen on lport\n"
 				"\t    and forward all connections through the proxy to rhost:rport.\n"
@@ -1191,6 +1200,38 @@ int main(int argc, char **argv) {
 	if (cflags) {
 		syslog(LOG_INFO, "Using manual NTLM flags: 0x%X\n", swap32(cflags));
 		g_creds->flags = cflags;
+	}
+
+	if (keychainpassword) {
+		syslog(LOG_INFO, "Reading password from keychain");
+
+		FILE *fp;
+        char passvar[100];
+        char command[200];
+        char *command_f = "/usr/bin/security find-generic-password -a %s -s %s -w";
+
+        snprintf(command, 200, command_f, cuser, "cntlm");
+
+        fp = popen(command, "r");
+
+		if (fp == NULL) {
+            syslog(LOG_ERR, "Error reading password from keychain");
+		} else {
+            while (fgets(cpassword, MINIBUF_SIZE, fp) != NULL);
+            i = strlen(cpassword) - 1;
+            if (cpassword[i] == '\n') {
+                cpassword[i] = 0;
+                if (cpassword[i - 1] == '\r')
+                    cpassword[i - 1] = 0;
+            }
+        }
+
+        int rc = pclose(fp);
+
+        if(rc != 0) {
+            syslog(LOG_ERR, "Command not found or exited with error status : %d", rc);
+            myexit(1);
+        }
 	}
 
 	/*
