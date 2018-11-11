@@ -5,7 +5,7 @@
 .SH SYNOPSIS
 .B cntlm
 [
-.B -AaBcDdFfgHhILlMPprSsTUuvw
+.B -AaBcDdFfgHhIkLlMPprSsTUuvw
 ] [ \fIhost1\fP \fIport1\fP | \fIhost1\fP:\fIport1\fP ] ... \fIhostN\fP \fIportN\fP
 
 .SH DESCRIPTION
@@ -187,6 +187,11 @@ Display help (available options with a short description) and exit.
 .B -I
 Interactive password prompt. Any password settings from the command line or config file is ignored and a
 password prompt is issued. Use this option only from shell.
+
+.TP
+.B -k
+Applies only to mac.
+Reads password from keychain. Looks for password in Keychain Item Name "cntlm", and Account Name "username".
 
 .TP
 .B -L [<saddr>:]<lport>:<rhost>:<rport>\ \ \ \ (Tunnel)
